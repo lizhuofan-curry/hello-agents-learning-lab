@@ -1,0 +1,53 @@
+[project]
+name = "hello-agents-learning-lab"
+version = "0.1.0"
+description = "A hands-on Chinese learning lab for AI agents, from classic dialogue systems to modern multi-agent frameworks."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = []
+
+[dependency-groups]
+chapter1 = [
+    "openai>=1.93.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "tavily-python>=0.7.0",
+]
+chapter3 = [
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+]
+chapter4 = [
+    "colorama>=0.4.6",
+    "google-search-results>=2.4.2",
+    "openai>=1.93.0",
+    "python-dotenv>=1.0.0",
+]
+autogen = [
+    "autogen-agentchat==0.7.4",
+    "autogen-ext[openai,azure]==0.7.4",
+    "openai>=1.93.0",
+    "pandas>=2.0.0",
+    "plotly>=5.15.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "streamlit>=1.28.0",
+]
+agentscope = [
+    "agentscope==1.0.2",
+    "python-dotenv>=1.0.0",
+]
+camel = [
+    "camel-ai",
+    "python-dotenv>=1.0.0",
+]
+langgraph = [
+    "langchain-openai",
+    "langgraph",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "tavily-python>=0.7.0",
+]
+
+[tool.uv]
+package = false

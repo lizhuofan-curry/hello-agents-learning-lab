@@ -1,0 +1,584 @@
+"""
+AutoGen 软件开发团队协作案例
+"""
+import re
+from pathlib import Path
+# 主要是为了读取环境变量
+import os
+# 是 python的异步编程库，因为后面的 async def 是一个异步函数，所以最后需要 asyncio.run启动它
+import asyncio
+# RoundRobinGroupChat : 规定大家轮流说话
+from autogen_agentchat.teams import RoundRobinGroupChat
+# extMentionTermination : 规定什么时候结束
+from autogen_agentchat.conditions import FunctionalTermination
+from autogen_agentchat.messages import TextMessage
+# AssistantAgent ： AI智能体 ；UserProxyAgent： 用户代理
+from autogen_agentchat.agents import AssistantAgent, UserProxyAgent, CodeExecutorAgent
+# Console 把聊天过程打印出来
+from autogen_agentchat.ui import Console
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+from autogen_ext.code_executors.docker import DockerCommandLineCodeExecutor
+from autogen_core import CancellationToken
+from dotenv import load_dotenv
+from web_app_tester import test_streamlit_app
+
+# 加载环境变量
+load_dotenv()
+
+
+# 现在是一轮一轮执行，更方便直接从 Engineer的回复保存
+def save_code_from_engineer_message(message, filename="output.py"):
+    """
+    从 Engineer 的 TextMessage 中提取 Python 代码，
+    做语法检查，然后保存到 output.py。
+    """
+
+    content = message.content
+
+    match = re.search(
+        r"```python\s*(.*?)```",
+        content,
+        re.DOTALL,
+    )
+
+    if not match:
+        raise ValueError(
+            "Engineer 回复中没有找到完整的 Python Markdown 代码块"
+        )
+
+    code = match.group(1).strip()
+
+    # Python 语法检查
+    compile(code, filename, "exec")
+
+    # 保存文件
+    Path(filename).write_text(
+        code,
+        encoding="utf-8",
+    )
+
+    print(f"💾 Engineer 代码已保存到 {filename}")
+    print("✅ Python 语法检查通过")
+
+    return code
+
+
+def save_engineer_code(result, filename="output.py"):
+    """
+    从团队聊天结果中找到 Engineer 最后生成的 Python 代码，
+    并保存到 output.py
+    """
+
+    # 从后往前找 Engineer 的消息
+    for message in reversed(result.messages):
+
+        if getattr(message, "source", None) != "Engineer":
+            continue
+
+        content = getattr(message, "content", "")
+
+        # 找 ```python ... ``` 代码块
+        match = re.search(
+            r"```python\s*(.*?)```",
+            content,
+            re.DOTALL
+        )
+
+        if match:
+            code = match.group(1).strip()
+
+            # 先进行 Python 语法检查
+            compile(code, filename, "exec")
+
+            # 语法正确后保存
+            Path(filename).write_text(
+                code,
+                encoding="utf-8"
+            )
+
+            print(f"💾 Engineer 代码已保存到 {filename}")
+            print("✅ Python 语法检查通过")
+
+            return code
+
+    raise ValueError("没有找到 Engineer 输出的 Python 代码块")
+
+
+def create_code_executor(docker_executor):
+    '''
+    创建代码执行智能体
+    注意：
+    CodeExecutorAgent 自己不真正执行代码
+    真正执行代码的是传进来的 DockerCommandLineCodeExecutor
+    Docker Executor 里面有明确的：启动 -> 使用 -> 关闭 的生命周期
+    '''
+    return CodeExecutorAgent(
+        name="CodeExecutor",
+        code_executor=docker_executor,
+        sources=['Engineer'],
+    )
+
+
+def reviewer_passed(messages):
+    """
+    只有 CodeReviewer 最终明确回复 REVIEW_PASS，
+    整个开发流程才允许结束。
+    """
+
+    for message in messages:
+
+        if (
+                isinstance(message, TextMessage)
+                and message.source == "CodeReviewer"
+                and message.content.strip() == "REVIEW_PASS"
+        ):
+            return True
+
+    return False
+
+
+# AutoGen 提供了标准化的 OpenAIChatCompletionClient，方便与任何兼容 OpenAI API 规范的模型服务
+
+# 通过一个独立的函数来创建和配置模型客户端
+# 并通过环境变量管理 API Key 和服务地址
+# 这是一种良好的工程实践，增强了代码的灵活性和安全性
+
+def create_openai_model_client():
+    '''创建并配置 OpenAI 模型客户端'''
+    return OpenAIChatCompletionClient(
+        model=os.getenv("LLM_MODEL_ID"),
+        api_key=os.getenv("LLM_API_KEY"),
+        base_url=os.getenv("LLM_BASE_URL"),
+        # 相当于告诉模型有哪些能力
+        model_info={
+            "vision": True,
+            "function_calling": False,
+            "json_output": False,
+            "family": "unknown",
+            "structured_output": False,
+        },
+    )
+
+
+# 下面来定义智能体角色
+# 在软件开发团队中，我们为每一个角色都创建一个独立的函数来封装其定义
+
+# 产品经理（Product Manager）
+'''
+产品经理负责启动整个流程。它的系统信息不仅定义了职责，还规范了其输出的结构
+并包含了引导对话转向下一环节（工程师）的明确指令
+LLM + 产品经理 System Prompt = ProductManager Agent
+'''
+
+
+def create_product_manager(model_client):
+    """创建产品经理智能体"""
+    system_message = """你是一位经验丰富的产品经理，专门负责软件产品的需求分析和项目规划。
+你的核心职责包括：
+1. **需求分析**：深入理解用户需求，识别核心功能和边界条件
+2. **技术规划**：基于需求制定清晰的技术实现路径
+3. **风险评估**：识别潜在的技术风险和用户体验问题
+4. **协调沟通**：与工程师和其他团队成员进行有效沟通
+
+当接到开发任务时，请按以下结构进行分析：
+1. 需求理解与分析
+2. 功能模块划分
+3. 技术选型建议
+4. 实现优先级排序
+5. 验收标准定义
+
+请简洁明了地回应，并在分析完成后说"请工程师开始实现"。"""
+    # 这个请工程师开始实现，这只是语言层面的交接提示
+    # RoundRobinGroupChat 才是真正让 Engineer 下一个发言
+    return AssistantAgent(
+        name="ProductManager",
+        model_client=model_client,
+        system_message=system_message,
+        model_client_stream=False,
+    )
+
+
+# 工程师（Engineer）
+# 工程师的系统消息聚焦于技术实现
+# 它列举了工程师的技术专长，并规定了其在接收到任务后的具体行动步骤
+# 同样也包含了引导流程转向代码审查员的指令
+def create_engineer(model_client):
+    """创建软件工程师智能体"""
+    system_message = """
+    你是一位资深的软件工程师，擅长 Python 开发和 Web 应用构建。
+
+    你的职责是根据用户需求、产品经理分析以及代码审查反馈，
+    编写完整、可运行的 Python 程序。
+
+    重要要求：
+
+    1. 最终完整代码必须放在且只放在一个 ```python ... ``` Markdown 代码块中
+    2. 不要把代码拆成多个代码块
+    3. 代码应能够直接保存为 output.py
+    4. 必须保证代码语法完整
+    5. 不要省略任何必要代码
+
+    如果这是第一次开发：
+    请根据用户需求和产品经理的需求分析完成代码。
+
+    如果 CodeReviewer 返回 REVIEW_FAIL：
+    1. 仔细阅读 CodeReviewer 提出的具体问题
+    2. 根据问题修改上一版代码
+    3. 必须重新输出修改后的完整代码
+    4. 不允许只输出修改片段
+    5. 修改后的完整代码仍然必须放在一个完整的 ```python ... ``` 代码块中
+
+    请考虑：
+    - 功能是否满足要求
+    - 边界情况
+    - 异常处理
+    - 代码可读性
+    - 代码健壮性
+
+    完成代码后说“请代码审查员检查”。
+    """
+    return AssistantAgent(
+        name="Engineer",
+        model_client=model_client,
+        system_message=system_message,
+        model_client_stream=False,
+    )
+
+
+# 代码审查员（CodeReviewer）
+# 代码审查员的定义侧重于代码质量。安全性和规范性
+# 它的系统消息详细列出了审查的重点和流程，确保了代码交付前的质量关卡
+def create_code_reviewer(model_client):
+    """创建代码审查员智能体"""
+    system_message = """
+    你是一位严格的代码审查专家。
+
+    你需要同时检查：
+
+    1. Engineer 最新生成的完整代码
+    2. CodeExecutor 最新返回的真实执行结果
+    3. 程序是否满足用户需求
+    4. 是否存在运行错误
+    5. 是否存在明显逻辑错误
+    6. 是否存在重要的安全性或健壮性问题
+
+    特别注意：
+
+    CodeExecutor 的输出是真实运行结果，
+    不能只相信 Engineer 对代码的描述。
+
+    如果代码或运行结果存在问题：
+
+    第一行必须回复：
+
+    REVIEW_FAIL
+
+    然后明确说明：
+    - 出现了什么问题
+    - Engineer 应该如何修改
+
+    不要编写新的代码。
+
+    如果代码正确、运行成功，而且满足用户要求：
+
+    最终回复必须且只能是：
+
+    REVIEW_PASS
+    """
+    return AssistantAgent(
+        name="CodeReviewer",
+        model_client=model_client,
+        system_message=system_message,
+        model_client_stream=False,
+    )
+
+
+# 用户代理(UserProxy)
+# UserProxyAgent 是一个特殊的智能体，它不依赖 LLM 进行回复，而是作为用户在系统中的代理
+# 它的 description 字段清晰地描述了其职责，尤其重要的是，它负责在任务最终完成后发出 TERMINATE 指令，以正常结束整个协作流程
+def create_user_proxy():
+    """创建用户代理智能体"""
+    return UserProxyAgent(
+        name="UserProxy",
+        description="""用户代理，负责以下职责：
+1. 代表用户提出开发需求
+2. 执行最终的代码实现
+3. 验证功能是否符合预期
+4. 提供用户反馈和建议
+
+完成测试后请回复 TERMINATE。"""
+    )
+
+
+# 定义团队协作流程
+# 软件开发的流程是相对固定的 （需求 -> 编码 -> 审查 -> 测试），因此 RoundRobinGroupChat(轮询群聊)是理想的选择
+# 我们按照业务逻辑顺序，将四个智能体加入到参与者列表中
+
+# 真正控制整个团队的是这个函数，所有东西都是在这组装起来的
+# 因为模型API请求不是瞬间完成的，所以用 async 网络请求天然适合异步
+async def run_software_development_team():
+    """运行 Streamlit Web 应用自动开发流程"""
+
+    print("🔧 正在初始化模型客户端...")
+
+    model_client = create_openai_model_client()
+
+    try:
+        # =====================================================
+        # 第一阶段：ProductManager 分析需求
+        # =====================================================
+
+        product_manager = create_product_manager(model_client)
+
+        user_request = """
+请开发一个简单的 Streamlit Web 应用。
+
+要求：
+
+1. 页面标题显示：
+   AutoGen Web Test
+
+2. 页面正文显示：
+   这是 Engineer 自动生成并经过 Docker 测试的 Streamlit 应用。
+
+3. 页面显示一个 st.success：
+   Web App 运行成功！
+
+4. 程序必须完整可运行。
+
+5. 使用 Streamlit。
+"""
+
+        print("\n👔 第一阶段：ProductManager 分析需求")
+        print("=" * 60)
+
+        pm_response = await product_manager.on_messages(
+            [
+                TextMessage(
+                    content=user_request,
+                    source="user",
+                )
+            ],
+            CancellationToken(),
+        )
+
+        print("\n---------- ProductManager ----------")
+        print(pm_response.chat_message.content)
+
+        # =====================================================
+        # 第二阶段：自动开发 + 测试 + 审查循环
+        # =====================================================
+
+        print("\n🤖 第二阶段：自动开发闭环")
+        print("=" * 60)
+
+        engineer = create_engineer(model_client)
+        reviewer = create_code_reviewer(model_client)
+
+        # 最多允许修改 3 次
+        max_attempts = 3
+
+        # 第一次给 Engineer 的任务
+        engineer_task = f"""
+下面是用户原始需求：
+
+{user_request}
+
+下面是 ProductManager 的需求分析：
+
+{pm_response.chat_message.content}
+
+请根据以上需求编写完整的 Streamlit 应用。
+
+必须输出完整的 ```python ... ``` 代码块。
+"""
+
+        for attempt in range(1, max_attempts + 1):
+
+            print("\n" + "=" * 60)
+            print(f"🔄 第 {attempt} 次开发")
+            print("=" * 60)
+
+            # -------------------------------------------------
+            # 1. Engineer 编写 / 修改代码
+            # -------------------------------------------------
+
+            engineer_response = await engineer.on_messages(
+                [
+                    TextMessage(
+                        content=engineer_task,
+                        source="user",
+                    )
+                ],
+                CancellationToken(),
+            )
+
+            print("\n---------- Engineer ----------")
+            print(engineer_response.chat_message.content)
+
+            # -------------------------------------------------
+            # 2. 提取并保存 output.py
+            # -------------------------------------------------
+
+            try:
+                code = save_code_from_engineer_message(
+                    engineer_response.chat_message,
+                    filename="output.py",
+                )
+
+            except Exception as e:
+                # 连 Python 代码块或语法都不正确
+                test_report = (
+                    "WEB_APP_TEST_FAIL\n"
+                    f"代码保存或语法检查失败：{e}"
+                )
+
+            else:
+                # ---------------------------------------------
+                # 3. Docker 真正启动 Streamlit 并 Health Check
+                # ---------------------------------------------
+
+                print("\n🌐 正在进行 Web App 自动测试...")
+
+                # test_streamlit_app 是同步函数，
+                # 放到单独线程运行，避免阻塞 async 主流程
+                # 它等价于调用 : test_streamlit_app("output.py")
+                # 没有直接使用test_streamlit_app("output.py")是因为它是一个同步，阻塞型任务
+                # 相当于把这个耗时的同步测试放到一个单线程里跑，我异步等他结束
+                test_report = await asyncio.to_thread(
+                    test_streamlit_app,
+                    "output.py",
+                )
+
+            print("\n---------- WebAppTester ----------")
+            print(test_report)
+
+            # -------------------------------------------------
+            # 4. 把代码 + 真实测试报告交给 Reviewer
+            # -------------------------------------------------
+
+            reviewer_task = f"""
+下面是 Engineer 最新生成的代码：
+
+{engineer_response.chat_message.content}
+
+下面是 WebAppTester 的真实测试结果：
+
+{test_report}
+
+请进行代码审查。
+
+如果程序满足用户要求，而且测试报告包含：
+
+WEB_APP_TEST_PASS
+
+请最终且只能回复：
+
+REVIEW_PASS
+
+否则：
+
+第一行回复：
+
+REVIEW_FAIL
+
+并详细说明 Engineer 应该修改什么。
+"""
+
+            reviewer_response = await reviewer.on_messages(
+                [
+                    TextMessage(
+                        content=reviewer_task,
+                        source="WebAppTester",
+                    )
+                ],
+                CancellationToken(),
+            )
+
+            print("\n---------- CodeReviewer ----------")
+            print(reviewer_response.chat_message.content)
+
+            # -------------------------------------------------
+            # 5. Reviewer 通过
+            # -------------------------------------------------
+
+            if (
+                reviewer_response.chat_message.content.strip()
+                == "REVIEW_PASS"
+            ):
+                print("\n" + "=" * 60)
+                print("✅ Web App 开发完成")
+                print("✅ Reviewer 已通过最终审查")
+                print("✅ output.py 已保存")
+                print("=" * 60)
+
+                return True
+
+            # -------------------------------------------------
+            # 6. Reviewer 没通过
+            #    把反馈重新交给 Engineer
+            # -------------------------------------------------
+
+            engineer_task = f"""
+你上一版 Streamlit 程序没有通过测试或代码审查。
+
+上一版完整代码：
+
+{engineer_response.chat_message.content}
+
+WebAppTester 的真实测试报告：
+
+{test_report}
+
+CodeReviewer 的审查意见：
+
+{reviewer_response.chat_message.content}
+
+请根据以上问题修复代码。
+
+要求：
+
+1. 必须重新输出完整代码
+2. 不能只输出修改片段
+3. 只能使用一个完整的 ```python ... ``` 代码块
+4. 必须保证程序可以直接保存为 output.py
+"""
+
+        # =====================================================
+        # 三次都没通过
+        # =====================================================
+
+        print("\n❌ 达到最大修改次数，仍未通过 Reviewer")
+        return False
+
+    finally:
+        await model_client.close()
+
+
+# 主程序入口
+if __name__ == "__main__":
+    try:
+        # 运行异步协作流程
+        success = asyncio.run(
+            run_software_development_team()
+        )
+
+        print("\n📋 协作结果摘要：")
+        print("- ProductManager：需求分析")
+        print("- Engineer：代码实现")
+        print("- WebAppTester：Docker + Streamlit 自动测试")
+        print("- CodeReviewer：代码与运行结果审查")
+
+        if success:
+            print("- 最终状态：✅ REVIEW_PASS")
+        else:
+            print("- 最终状态：❌ 未通过最终审查")
+
+    except ValueError as e:
+        print(f"❌ 配置错误：{e}")
+        print("请检查 .env 文件中的配置是否正确")
+    except Exception as e:
+        print(f"❌ 运行错误：{e}")
+        import traceback
+
+        traceback.print_exc()

@@ -1,0 +1,32 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# uv / Python
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+
+# Test and tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Generated AutoGen workspaces
+第六章/AutoGen/agent_workspace/
+第六章/AutoGen/docker_workspace/
+
+# Runtime output
+*.log
