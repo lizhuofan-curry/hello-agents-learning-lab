@@ -79,20 +79,23 @@ class ReflectionAgent(Agent):
         print("========= 反思结果 ============")
         print(feedback)
 
-        # 根据反思结果改进回答
-        refine_prompt = REFINE_PROMPT.format(
-            task = input_text,
-            last_answer = initial_answer,
-            feedback = feedback
-        )
+        if "无需改进" in feedback:
+            final_answer = initial_answer
+        else:
+            # 根据反思结果改进回答
+            refine_prompt = REFINE_PROMPT.format(
+                task=input_text,
+                last_answer=initial_answer,
+                feedback=feedback
+            )
 
-        refine_messages = [
-            {
-                'role' : 'user',
-                'content': refine_prompt
-            }
-        ]
-        final_answer = self.llm.invoke(refine_messages)
+            refine_messages = [
+                {
+                    'role': 'user',
+                    'content': refine_prompt
+                }
+            ]
+            final_answer = self.llm.invoke(refine_messages)
 
         print('\n============== 改进后的回答 =============')
         print(final_answer)
