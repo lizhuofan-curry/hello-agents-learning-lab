@@ -2,10 +2,10 @@
 
 # Hello Agents · 我的智能体学习实验室
 
-**把“看懂 Agent”变成“亲手跑通 Agent”。**
+**把“看懂 Agent”变成“亲手跑通 Agent”，再把它拆开、重组，做成自己的框架。**
 
 从 ELIZA、N-gram 和 BPE 出发，一路走到 ReAct、Plan-and-Solve、Reflection，
-再进入 AutoGen、AgentScope、CAMEL 与 LangGraph 的多智能体世界。
+再进入 AutoGen、AgentScope、CAMEL 与 LangGraph 的多智能体世界，最后亲手实现一个最小但完整的 Agent 框架。
 
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/env-uv-DE5FE9)](https://docs.astral.sh/uv/)
@@ -27,6 +27,7 @@
 | 第三章 | N-gram、BPE、Qwen 本地推理与 KV Cache | [进入代码](./第三章/) | [第三章课后习题](./notes/第三章/第三章的问题.md) |
 | 第四章 | ReAct、Plan-and-Solve、Reflection | [进入代码](./第四章/) | [第四章课后习题](./notes/第四章/第四章的问题.md) |
 | 第六章 | AutoGen、AgentScope、CAMEL、LangGraph | [进入代码](./第六章/) | [第六章课后习题](./notes/第六章/第六章的问题.md) |
+| 第七章 | 自制 HelloAgents：Core、Agent 与 Tool 模块 | [进入项目](./第七章/HelloAgents/) | 代码内逐层注释 + 9 个演示 |
 
 > 第五章内容仍在学习与整理中。这里保留真实进度，不用“看起来完整”代替“真正理解”。
 
@@ -38,8 +39,66 @@ flowchart LR
     B --> C[单智能体范式<br/>ReAct · Plan · Reflection]
     C --> D[多智能体协作<br/>AutoGen · AgentScope · CAMEL]
     C --> E[显式工作流<br/>LangGraph]
-    D --> F[可控、可观察、可复现的 Agent]
+    D --> F[理解成熟框架如何协作]
     E --> F
+    F --> G[亲手实现 HelloAgents<br/>Core · Agent · Tool]
+```
+
+## 最新进展：亲手实现 HelloAgents
+
+第七章不再只是“调用一个框架”，而是从统一消息格式开始，逐层搭建自己的 Agent 框架。它把前面章节里零散出现的概念，收拢成可以组合、替换和继续扩展的模块。
+
+```mermaid
+flowchart TB
+    subgraph Core[Core · 基础能力]
+        Message[Message<br/>统一消息]
+        Config[Config<br/>运行配置]
+        LLM[HelloAgentsLLM<br/>模型调用与流式输出]
+    end
+
+    AgentBase[Agent 抽象基类]
+    Simple[SimpleAgent<br/>多轮对话]
+    ReAct[ReActAgent<br/>Thought → Action → Observation]
+
+    subgraph Tools[Tool · 工具系统]
+        BaseTool[BaseTool<br/>统一接口]
+        Registry[ToolRegistry<br/>注册、描述与执行]
+        Calculator[CalculatorTool<br/>AST 安全计算]
+    end
+
+    Message --> AgentBase
+    Config --> AgentBase
+    LLM --> AgentBase
+    AgentBase --> Simple
+    AgentBase --> ReAct
+    BaseTool --> Calculator
+    BaseTool --> Registry
+    Registry --> ReAct
+```
+
+当前实现状态：
+
+- ✅ `Message`、`Config`、`HelloAgentsLLM` 核心模块；
+- ✅ `Agent` 抽象基类与带历史记录的 `SimpleAgent`；
+- ✅ `BaseTool`、`ToolRegistry` 和基于 AST 白名单的 `CalculatorTool`；
+- ✅ 可调用工具、记录 Observation、限制最大步数的 `ReActAgent`；
+- 🚧 `ReflectionAgent` 已预留文件，尚待实现。
+
+第七章提供 9 个小演示。可以先运行不需要 API 的基础模块，再进入真实模型调用：
+
+```powershell
+cd ".\第七章\HelloAgents"
+uv sync
+
+# 无需模型 API：先理解数据结构和工具系统
+uv run python -m demos.demo_message
+uv run python -m demos.demo_calculator
+uv run python -m demos.demo_registry
+
+# 配置 .env 后，再体验多轮对话与 ReAct 工具调用
+Copy-Item ".\..\..\.env.example" ".\.env"
+uv run python -m demos.demo_simple_agent
+uv run python -m demos.demo_react
 ```
 
 ## 用 uv 开始
@@ -71,8 +130,9 @@ uv run python ".\第一章\动手体验：5分钟实现第一个智能体.py"
 | `agentscope` | `uv sync --group agentscope` | AgentScope 1.0.2 案例 |
 | `camel` | `uv sync --group camel` | CAMEL 案例 |
 | `langgraph` | `uv sync --group langgraph` | LangGraph 案例 |
+| 第七章独立环境 | `cd ".\第七章\HelloAgents"; uv sync` | 自制 HelloAgents 框架与演示 |
 
-切换主题时再次执行对应的 `uv sync --group ...` 即可。模型和框架之间可能存在版本差异；如果你希望完全隔离某个大型实验，也可以在对应子目录单独建立 uv 项目。
+切换主题时再次执行对应的 `uv sync --group ...` 即可。第七章已经是独立 uv 项目，会在自己的目录中维护环境与锁文件，避免和前面的大型框架依赖互相影响。
 
 ## 配置说明
 
@@ -99,6 +159,7 @@ uv run python ".\第一章\动手体验：5分钟实现第一个智能体.py"
 - 你最想看哪个示例被拆成逐行运行流程？
 - 某个 Agent 为什么会循环、跑题或调用错工具？
 - 同一个任务更适合 ReAct、Reflection，还是 LangGraph？
+- 如果从零设计 Agent 框架，下一步应该补搜索工具、记忆系统还是 Reflection？
 - 你有更清晰的实现方式或实验结果吗？
 
 问题、纠错和学习心得都很欢迎。这个仓库的目标不是假装无所不知，而是把“逐渐弄懂”的过程认真留下来。
