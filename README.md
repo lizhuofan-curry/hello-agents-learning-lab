@@ -27,7 +27,7 @@
 | 第三章 | N-gram、BPE、Qwen 本地推理与 KV Cache | [进入代码](./第三章/) | [第三章课后习题](./notes/第三章/第三章的问题.md) |
 | 第四章 | ReAct、Plan-and-Solve、Reflection | [进入代码](./第四章/) | [第四章课后习题](./notes/第四章/第四章的问题.md) |
 | 第六章 | AutoGen、AgentScope、CAMEL、LangGraph | [进入代码](./第六章/) | [第六章课后习题](./notes/第六章/第六章的问题.md) |
-| 第七章 | 自制 HelloAgents：Core、Agent 与 Tool 模块 | [进入项目](./第七章/HelloAgents/) | 代码内逐层注释 + 9 个演示 |
+| 第七章 | 自制 HelloAgents：Core、Agent、Tool 与 Reflection | [进入项目](./第七章/HelloAgents/) | 代码内逐层注释 + 10 个演示 |
 
 > 第五章内容仍在学习与整理中。这里保留真实进度，不用“看起来完整”代替“真正理解”。
 
@@ -59,6 +59,7 @@ flowchart TB
     AgentBase[Agent 抽象基类]
     Simple[SimpleAgent<br/>多轮对话]
     ReAct[ReActAgent<br/>Thought → Action → Observation]
+    Reflection[ReflectionAgent<br/>Initial → Reflect → Refine]
 
     subgraph Tools[Tool · 工具系统]
         BaseTool[BaseTool<br/>统一接口]
@@ -71,6 +72,7 @@ flowchart TB
     LLM --> AgentBase
     AgentBase --> Simple
     AgentBase --> ReAct
+    AgentBase --> Reflection
     BaseTool --> Calculator
     BaseTool --> Registry
     Registry --> ReAct
@@ -82,13 +84,17 @@ flowchart TB
 - ✅ `Agent` 抽象基类与带历史记录的 `SimpleAgent`；
 - ✅ `BaseTool`、`ToolRegistry` 和基于 AST 白名单的 `CalculatorTool`；
 - ✅ 可调用工具、记录 Observation、限制最大步数的 `ReActAgent`；
-- 🚧 `ReflectionAgent` 已预留文件，尚待实现。
+- ✅ `ReflectionAgent`：生成初稿、反思检查、按需改写并保存最终回答；
+- ✅ 支持用 `custom_prompt` 覆盖部分或全部 Reflection 提示词，复用同一控制流完成代码审查等任务。
 
-第七章提供 9 个小演示。可以先运行不需要 API 的基础模块，再进入真实模型调用：
+第七章目前提供 10 个小演示。可以先运行不需要 API 的基础模块，再进入真实模型调用：
 
 ```powershell
 cd ".\第七章\HelloAgents"
 uv sync
+
+# Windows 中文终端建议启用 Python UTF-8 模式
+$env:PYTHONUTF8 = "1"
 
 # 无需模型 API：先理解数据结构和工具系统
 uv run python -m demos.demo_message
@@ -99,7 +105,10 @@ uv run python -m demos.demo_registry
 Copy-Item ".\..\..\.env.example" ".\.env"
 uv run python -m demos.demo_simple_agent
 uv run python -m demos.demo_react
+uv run python -m demos.demo_reflection
 ```
+
+`ReflectionAgent` 当前执行一轮反思：如果反馈包含“无需改进”，直接返回初稿；否则再调用一次模型生成改进版。它还不是多轮循环反思，这个边界会随着后续实现继续更新。
 
 ## 用 uv 开始
 
