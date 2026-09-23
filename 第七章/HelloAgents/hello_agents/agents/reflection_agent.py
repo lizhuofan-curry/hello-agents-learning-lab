@@ -1,7 +1,7 @@
 '''Reflection Agent'''
 
 from hello_agents.core.agent import Agent
-
+from hello_agents.core.message import Message
 INITIAL_PROMPT = """
 请根据下面的任务给出一个完整回答。
 
@@ -24,7 +24,23 @@ REFLECT_PROMPT = """
 
 如果已经很好，请回答“无需改进”。
 """
+REFINE_PROMPT = """
+请根据反思意见改进下面的回答。
 
+原始任务：
+{task}
+
+上一版回答：
+{last_answer}
+
+反思意见：
+{feedback}
+
+请针对反思意见进行修改，
+给出一份完整、准确、更加严谨的最终回答。
+
+只需要输出修改后的最终回答。
+"""
 class ReflectionAgent(Agent):
     '''具有反思能力的 Agent'''
 
@@ -63,5 +79,36 @@ class ReflectionAgent(Agent):
         print("========= 反思结果 ============")
         print(feedback)
 
-        # V1 暂时返回初始回答
-        return initial_answer
+        # 根据反思结果改进回答
+        refine_prompt = REFINE_PROMPT.format(
+            task = input_text,
+            last_answer = initial_answer,
+            feedback = feedback
+        )
+
+        refine_messages = [
+            {
+                'role' : 'user',
+                'content': refine_prompt
+            }
+        ]
+        final_answer = self.llm.invoke(refine_messages)
+
+        print('\n============== 改进后的回答 =============')
+        print(final_answer)
+
+        # 补上 Agent 的历史记录
+        self.add_message(
+            Message(
+                role = 'user',
+                content = input_text
+            )
+        )
+        self.add_message(
+            Message(
+                role = "assistant",
+                content=final_answer
+            )
+        )
+
+        return final_answer
