@@ -1,17 +1,13 @@
-import streamlit as st
+#!/usr/bin/env python3
+"""计算 1 到 100 所有整数之和，并打印结果。"""
 
+def compute_sum(start: int = 1, end: int = 100) -> int:
+    """计算从 start 到 end（包含两端）的所有整数之和。"""
+    return sum(range(start, end + 1))
 
 def main() -> None:
-    st.set_page_config(
-        page_title="AutoGen Web Test",
-        page_icon="🧪",
-        layout="centered",
-    )
-
-    st.title("AutoGen Web Test")
-    st.write("这是 Engineer 自动生成并经过 Docker 测试的 Streamlit 应用。")
-    st.success("Web App 运行成功！")
-
+    result = compute_sum(1, 100)
+    print(result)
 
 if __name__ == "__main__":
     main()
