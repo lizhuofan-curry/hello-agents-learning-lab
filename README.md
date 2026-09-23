@@ -33,50 +33,23 @@
 
 ## 学习地图
 
-```mermaid
-flowchart LR
-    A[规则与符号<br/>ELIZA] --> B[语言模型基础<br/>N-gram · BPE]
-    B --> C[单智能体范式<br/>ReAct · Plan · Reflection]
-    C --> D[多智能体协作<br/>AutoGen · AgentScope · CAMEL]
-    C --> E[显式工作流<br/>LangGraph]
-    D --> F[理解成熟框架如何协作]
-    E --> F
-    F --> G[亲手实现 HelloAgents<br/>Core · Agent · Tool]
-```
+<p align="center">
+  <a href="./assets/learning-roadmap.svg">
+    <img src="./assets/learning-roadmap.png" alt="从规则启蒙到亲手实现 HelloAgents 的五阶段学习路线" width="100%" />
+  </a>
+</p>
+<p align="center"><sub>点击图片可查看、缩放 SVG 原图</sub></p>
 
 ## 最新进展：亲手实现 HelloAgents
 
 第七章不再只是“调用一个框架”，而是从统一消息格式开始，逐层搭建自己的 Agent 框架。它把前面章节里零散出现的概念，收拢成可以组合、替换和继续扩展的模块。
 
-```mermaid
-flowchart TB
-    subgraph Core[Core · 基础能力]
-        Message[Message<br/>统一消息]
-        Config[Config<br/>运行配置]
-        LLM[HelloAgentsLLM<br/>模型调用与流式输出]
-    end
-
-    AgentBase[Agent 抽象基类]
-    Simple[SimpleAgent<br/>多轮对话]
-    ReAct[ReActAgent<br/>Thought → Action → Observation]
-    Reflection[ReflectionAgent<br/>Initial → Reflect → Refine]
-
-    subgraph Tools[Tool · 工具系统]
-        BaseTool[BaseTool<br/>统一接口]
-        Registry[ToolRegistry<br/>注册、描述与执行]
-        Calculator[CalculatorTool<br/>AST 安全计算]
-    end
-
-    Message --> AgentBase
-    Config --> AgentBase
-    LLM --> AgentBase
-    AgentBase --> Simple
-    AgentBase --> ReAct
-    AgentBase --> Reflection
-    BaseTool --> Calculator
-    BaseTool --> Registry
-    Registry --> ReAct
-```
+<p align="center">
+  <a href="./assets/helloagents-architecture.svg">
+    <img src="./assets/helloagents-architecture.png" alt="HelloAgents 的 Core、Agent 与 Tool 三层模块架构" width="100%" />
+  </a>
+</p>
+<p align="center"><sub>点击图片可查看、缩放 SVG 原图</sub></p>
 
 当前实现状态：
 
