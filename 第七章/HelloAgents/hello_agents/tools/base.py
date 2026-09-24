@@ -37,6 +37,42 @@ class BaseTool(ABC):
         '''执行工具'''
         pass
 
+    # 和上面那个抽象方法一样
+    # 意思是每一个具体的 Tool 不但必须会执行，还必须告诉框架自己需要哪些参数
+    @abstractmethod
+    def get_parameters(self) -> list[ToolParameter]:
+        """返回工具参数定义"""
+        pass
+
+    def to_openai_schema(self) -> dict[str,Any]:
+        """转换成 OpenAI Function Calling 使用的 Schema"""
+        parameters = self.get_parameters()
+
+        properties = {}
+        required = []
+
+        for parameter in parameters:
+            properties[parameter.name] = {
+                "type" : parameter.type,
+                "description" : parameter.description,
+            }
+
+            if parameter.required:
+                required.append(parameter.name)
+
+        return {
+            "type" : "function",
+            "function" : {
+                "name" : self.name,
+                'description' : self.description,
+                "parameters" : {
+                    "type" : "object",
+                    "properties" : properties,
+                    "required" : required,
+                }
+            }
+        }
+
     def __str__(self) -> str:
         return f"{self.name}:{self.description}"
 

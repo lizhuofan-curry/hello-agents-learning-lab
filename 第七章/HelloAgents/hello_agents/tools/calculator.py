@@ -4,7 +4,7 @@ import ast
 import math
 import operator
 
-from hello_agents.tools.base import BaseTool
+from hello_agents.tools.base import BaseTool,ToolParameter
 
 class CalculatorTool(BaseTool):
     '''安全的数学计算工具'''
@@ -30,6 +30,18 @@ class CalculatorTool(BaseTool):
 
         except Exception as e:
             return f"计算失败：{e}"
+
+    def get_parameters(self) -> list[ToolParameter]:
+        """返回计算器需要的参数"""
+        return [
+            ToolParameter(
+                name = 'expression',
+                type = 'string',
+                description='需要计算的数学表达式',
+                required=True
+            )
+        ]
+
     # _eval_node 是递归运算
     def _eval_node(self,node):
         operators = {
