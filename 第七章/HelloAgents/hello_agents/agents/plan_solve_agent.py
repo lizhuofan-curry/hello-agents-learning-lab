@@ -2,9 +2,11 @@
 
 import ast
 
+from hello_agents.core.message import Message
 from hello_agents.core.agent import Agent
 
-DEFAULT_PLANNER_PROMPT = """
+DEFAULT_PROMPTS = {
+    "planner": """
 你是一个AI规划专家。
 
 你的任务是把用户提出的问题分解成多个简单、可执行的步骤。
@@ -20,9 +22,9 @@ DEFAULT_PLANNER_PROMPT = """
 ["步骤1", "步骤2", "步骤3"]
 
 不要输出列表以外的任何内容。
-"""
+""",
 
-DEFAULT_EXECUTOR_PROMPT = """
+    "executor": """
 你是一位AI执行专家。
 
 你的任务是严格按照给定计划，
@@ -40,20 +42,39 @@ DEFAULT_EXECUTOR_PROMPT = """
 当前需要执行的步骤：
 {current_step}
 
-请只完成当前步骤。
+请只完成当前步骤，
 不要提前执行后续步骤。
 
 请直接输出当前步骤的结果。
 """
+}
 # 自然语言计划 -> 结构化计划 -> 程序循环执行
 class PlanAndSolveAgent(Agent):
     """规划并执行智能体"""
+    def __init__(
+            self,
+            name:str,
+            llm,
+            system_prompt:str|None = None,
+            config = None,
+            custom_prompts:dict[str,str]|None = None,
+    ):
+        super().__init__(
+            name=name,
+            llm = llm,
+            system_prompt=system_prompt,
+            config=config
+        )
+        self.prompts = DEFAULT_PROMPTS.copy()
+
+        if custom_prompts:
+            self.prompts.update(custom_prompts)
 
     def _make_plan(
             self,
             question:str,
     ) -> list[str]:
-        prompt = DEFAULT_PLANNER_PROMPT.format(question=question)
+        prompt = self.prompts["planner"].format(question=question)
         messages = [
             {
                 'role' : 'user',
@@ -69,7 +90,16 @@ class PlanAndSolveAgent(Agent):
         print("\n========= Planner 原始输出 =============")
         print(response)
         # ast.literal_eval 只允许解析比较安全的 Python 字面量，不会随便执行函数调用或者系统命令
-        plan = ast.literal_eval(response.strip())
+       # 补充 LLM 输出验证
+        try:
+            plan = ast.literal_eval(response.strip())
+        except (ValueError,SyntaxError):
+            raise ValueError(
+                f"Planner 输出无法被解析为 Python 列表 : \n{response} "
+            )
+
+        if not isinstance(plan,list):
+            raise ValueError("Planner 输出不是列表")
         return plan
 
     def _execute_step(
@@ -83,7 +113,7 @@ class PlanAndSolveAgent(Agent):
 
         history_text = "\n".join(history) if history else "暂无"
 
-        prompt = DEFAULT_EXECUTOR_PROMPT.format(
+        prompt = self.prompts["executor"].format(
             question=question,
             plan=plan,
             history = history_text,
@@ -110,7 +140,7 @@ class PlanAndSolveAgent(Agent):
         print("\n========== 最终计划 ==========")
 
         for i,step in enumerate(plan,1):
-            print(f"步骤{1}: {step}")
+            print(f"步骤{i}: {step}")
 
         # 保存执行历史
         execution_history : list[str] = []
@@ -140,6 +170,20 @@ class PlanAndSolveAgent(Agent):
             )
 
             final_result = result
+
+        self.add_message(
+            Message(
+                role = 'user',
+                content=input_text
+            )
+        )
+        self.add_message(
+            Message(
+                role = 'assistant',
+                content=final_result
+            )
+        )
+
         return final_result
 
 

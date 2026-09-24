@@ -23,3 +23,8 @@ result = agent.run(question)
 
 print("\n========== 最终结果 ==========")
 print(result)
+
+print("\n============ 对话历史 ==============")
+
+for message in agent.get_history():
+    print(message)
