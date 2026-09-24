@@ -6,6 +6,17 @@
 所以添加了统一接口
 '''
 from abc import ABC,abstractmethod
+from typing import Any
+from pydantic import BaseModel
+
+class ToolParameter(BaseModel):
+    '''描述一个工具参数'''
+    name : str
+    type : str
+    description : str
+    required : bool = True
+    default : Any = None
+
 
 # 意思是 所有 Tool 必须会 execute()
 # 现在就是在重复使用一种框架设计思想
