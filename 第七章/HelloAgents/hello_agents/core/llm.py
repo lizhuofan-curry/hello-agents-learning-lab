@@ -93,5 +93,5 @@ class HelloAgentsLLM:
                 # yield 和 return 完全不一样
                 # return 返回结果，然后函数结束
                 # yield 它不是一次调用返回三个结果，而是变成一个生成器 Generator
-                # 所以 yield 不是结束函数，而是“交出去一个结果，然后暂停在这里”
+                # 所以 yield 不是结束函数，而是“暂时停止”
                 yield content

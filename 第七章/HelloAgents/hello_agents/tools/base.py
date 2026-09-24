@@ -46,6 +46,11 @@ class BaseTool(ABC):
 
     def to_openai_schema(self) -> dict[str,Any]:
         """转换成 OpenAI Function Calling 使用的 Schema"""
+        # parameter 里面的意思是 如果你决定调用 calculator，那你必须安按照下面规定的结构提供参数
+        # 这里面使用的是 JSON Schema
+        # 所以严格来说，我们现在制定的“OpenAI Schema” 其实包含两层
+        # 外层是 OpenAI 规定的工具描述格式
+        # parameters 里面才是真正的 JSON Schema 参数描述
         parameters = self.get_parameters()
 
         properties = {}
@@ -59,15 +64,24 @@ class BaseTool(ABC):
 
             if parameter.required:
                 required.append(parameter.name)
+        # Schema 不是调用结果，它是工具说明书
+        # Tool Call 是模型按照说明书填写的一张“调用申请单”
 
         return {
+            # 这是工具类型
             "type" : "function",
             "function" : {
                 "name" : self.name,
                 'description' : self.description,
                 "parameters" : {
+                    # 这里用 object 是因为一次函数调用的参数整体，会表示成一个 JSON 对象
+                    # 可用理解成 Json object ≈ Python dict
+                    # 于是 “type”:"object" 就是在说 calculator 的所有参数组合起来，要是一个键值对对象
                     "type" : "object",
+                    # properies 可用直接理解成: 这个参数对象里面允许有哪些字段
+                    # 这里面的 type 是参数的数据类型
                     "properties" : properties,
+                    # 意思是调用这个函数时，expression 是必填参数
                     "required" : required,
                 }
             }
