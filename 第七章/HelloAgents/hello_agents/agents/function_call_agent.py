@@ -1,3 +1,5 @@
+import json
+
 from typing import Any
 
 from hello_agents.core.agent import Agent
@@ -35,6 +37,36 @@ class FunctionCallAgent(Agent):
             tool_choice = tool_choice,
             temperature = self.llm.temperature
         )
+
+    def _parse_function_call_arguments(
+            self,
+            # 刚刚 tool.call.function.arguments 实际上是 str
+            arguments:str
+    ) -> dict[str,Any]:
+        '''解析模型返回的 Function Call 参数'''
+        # 处理极端情况
+        if not arguments:
+            return {}
+        # LLM 返回的参数理论上应该是合法的JSON,但是作为框架，不能假设永远正确
+        try:
+            # 把 str 变成 dict
+            parsed_arguments = json.loads(arguments)
+
+        except json.JSONDecodeError as e:
+            # raise ... from e 表示现在抛出一个更好理解的新错误，但保留原始错误作为原因
+            raise ValueError(
+                f'Function Call 参数是不合法的 JSON : {arguments}'
+            ) from e
+
+        if not isinstance(parsed_arguments,dict):
+            raise ValueError(
+                "Function Call 参数解析后必须是字典"
+            )
+
+        return parsed_arguments
+
+
+
     # 因为此时的 FunctionCallAgent 是继承了 Agent的
     # 而 Agent 里面有一个 @abstractmethod 抽象方法，所以必须实现 run()
     def run(self,input_text: str) -> str:
