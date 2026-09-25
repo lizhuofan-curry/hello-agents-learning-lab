@@ -2,10 +2,9 @@
 
 # Hello Agents · 我的智能体学习实验室
 
-**把“看懂 Agent”变成“亲手跑通 Agent”，再把它拆开、重组，做成自己的框架。**
+**从“Agent 到底是什么”出发，用代码和笔记，一步步把它拆开、跑通、再亲手搭起来。**
 
-从 ELIZA、N-gram 和 BPE 出发，一路走到 ReAct、Plan-and-Solve、Reflection，
-再进入 AutoGen、AgentScope、CAMEL 与 LangGraph 的多智能体世界，最后亲手实现一个最小但完整的 Agent 框架。
+规则对话 → 语言模型 → Agent 工作流 → 多智能体协作 → 自制 HelloAgents
 
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/env-uv-DE5FE9)](https://docs.astral.sh/uv/)
@@ -16,138 +15,128 @@
 
 ---
 
-## 这里有什么
+## 为什么有这个仓库
 
-这不是一份只收藏链接的资料清单，而是我的 AI Agent 学习现场：每个概念都尽量配上可以运行、可以观察、可以继续改造的 Python 代码，同时保留我在学习过程中真正遇到的问题、推导和思考。
+我想把学习 Agent 的过程留得更具体一些：不只记录“调用了哪个框架”，还追问模型如何决定下一步、工具调用是怎样接上的、计划失败时会发生什么。这里既有从零写的小实验，也有我对概念、课后题和失败边界的中文笔记。
 
-| 路线 | 主题 | 代码 | 学习笔记 |
-|---|---|---|---|
-| 第一章 | 第一个工具调用智能体、Thought–Action–Observation 闭环 | [进入代码](./第一章/) | [第一章课后习题](./notes/第一章/第一章的问题.md) |
-| 第二章 | ELIZA、规则匹配与短期记忆 | [进入代码](./第二章/) | [第二章课后习题](./notes/第二章/第二章的问题.md) |
-| 第三章 | N-gram、BPE、Qwen 本地推理与 KV Cache | [进入代码](./第三章/) | [第三章课后习题](./notes/第三章/第三章的问题.md) |
-| 第四章 | ReAct、Plan-and-Solve、Reflection | [进入代码](./第四章/) | [第四章课后习题](./notes/第四章/第四章的问题.md) |
-| 第六章 | AutoGen、AgentScope、CAMEL、LangGraph | [进入代码](./第六章/) | [第六章课后习题](./notes/第六章/第六章的问题.md) |
-| 第七章 | 自制 HelloAgents：Core、Agent、Tool 与 Reflection | [进入项目](./第七章/HelloAgents/) | 代码内逐层注释 + 10 个演示 |
+如果你也刚开始学 AI Agent，可以从第一章顺着走；如果你已经在写 Agent，可以直接跳到[第七章的自制框架](./第七章/README.md)，看一个 Agent 怎样从消息、模型和工具逐层长出来。
 
-> 第五章内容仍在学习与整理中。这里保留真实进度，不用“看起来完整”代替“真正理解”。
+> 这是持续更新的个人学习实验室，不是官方教程，也不把尚未实现的能力标成“已完成”。
+
+## 从哪里开始
+
+| 我想了解…… | 推荐入口 | 可以看到什么 |
+|---|---|---|
+| Agent 的第一个闭环 | [第一章](./第一章/README.md) | 旅行助手里的 Thought → Action → Observation |
+| 不用大模型如何“聊天” | [第二章](./第二章/README.md) | ELIZA 的规则匹配、代词转换与增强版 |
+| LLM 为何能接续文本 | [第三章](./第三章/README.md) | Bigram、BPE、Qwen 推理与 KV Cache |
+| Agent 如何组织思考与行动 | [第四章](./第四章/README.md) | ReAct、Plan-and-Solve、Reflection 三种范式 |
+| 多个 Agent 如何协作 | [第六章](./第六章/README.md) | AutoGen、AgentScope、CAMEL、LangGraph 实验 |
+| 如何做自己的 Agent 框架 | [第七章](./第七章/README.md) | HelloAgents 的 Core、Agent、Tool、Function Calling |
+
+第五章目前没有对应的项目目录，先如实保留空白；后续整理完成再补。
 
 ## 学习地图
 
 <p align="center">
   <a href="./assets/learning-roadmap.svg">
-    <img src="./assets/learning-roadmap.png" alt="从规则启蒙到亲手实现 HelloAgents 的五阶段学习路线" width="100%" />
+    <img src="./assets/learning-roadmap.png" alt="从规则启蒙到自制 HelloAgents 的学习路线" width="100%" />
   </a>
 </p>
-<p align="center"><sub>点击图片可查看、缩放 SVG 原图</sub></p>
+<p align="center"><sub>点击图片可查看 SVG 原图；每章的具体文件与运行方式见上方入口。</sub></p>
 
-## 最新进展：亲手实现 HelloAgents
+## 当前重点：自制 HelloAgents
 
-第七章不再只是“调用一个框架”，而是从统一消息格式开始，逐层搭建自己的 Agent 框架。它把前面章节里零散出现的概念，收拢成可以组合、替换和继续扩展的模块。
+第七章是这段学习路线的“回收站”与“试验台”：前面学过的消息、工具、规划和反思，在这里变成能复用的 Python 组件。它有独立的 `pyproject.toml`、`uv.lock` 和 **24 个演示脚本**，无需把前面几章的框架依赖一起装进来。
 
 <p align="center">
   <a href="./assets/helloagents-architecture.svg">
-    <img src="./assets/helloagents-architecture.png" alt="HelloAgents 的 Core、Agent 与 Tool 三层模块架构" width="100%" />
+    <img src="./assets/helloagents-architecture.png" alt="HelloAgents 的 Core、Agent、Tool 基础骨架" width="100%" />
   </a>
 </p>
-<p align="center"><sub>点击图片可查看、缩放 SVG 原图</sub></p>
+<p align="center"><sub>这张图展示最初搭建的基础骨架；下表补充之后新增的 Plan-and-Solve 与 Function Calling。</sub></p>
 
-当前实现状态：
+| 层次 | 已实现内容 | 从哪里读起 |
+|---|---|---|
+| Core | `Message`、`Config`、`HelloAgentsLLM`、`Agent` 抽象基类 | [core](./第七章/HelloAgents/hello_agents/core/) |
+| Tools | `BaseTool`、`ToolParameter`、`ToolRegistry`、受限表达式计算器、OpenAI 工具 Schema 转换 | [tools](./第七章/HelloAgents/hello_agents/tools/) |
+| 基础 Agent | `SimpleAgent` 的对话历史；`ReActAgent` 的工具选择、Observation 与最大步数 | [agents](./第七章/HelloAgents/hello_agents/agents/) |
+| 规划与反思 | `PlanAndSolveAgent` 的计划生成与逐步执行；`ReflectionAgent` 的初稿、一次反馈与按需改写 | [演示索引](./第七章/HelloAgents/README.md#演示怎么选) |
+| 原生工具调用 | `FunctionCallAgent` 的工具 Schema、参数解析/转换、工具执行与结果回填 | [演示索引](./第七章/HelloAgents/README.md#演示怎么选) |
 
-- ✅ `Message`、`Config`、`HelloAgentsLLM` 核心模块；
-- ✅ `Agent` 抽象基类与带历史记录的 `SimpleAgent`；
-- ✅ `BaseTool`、`ToolRegistry` 和基于 AST 白名单的 `CalculatorTool`；
-- ✅ 可调用工具、记录 Observation、限制最大步数的 `ReActAgent`；
-- ✅ `ReflectionAgent`：生成初稿、反思检查、按需改写并保存最终回答；
-- ✅ 支持用 `custom_prompt` 覆盖部分或全部 Reflection 提示词，复用同一控制流完成代码审查等任务。
+这里有意保留实现边界：`ReflectionAgent` 只做**一轮**反思；`PlanAndSolveAgent` 当前按初始计划依次执行，**不动态重规划**；`FunctionCallAgent` 当前处理一次模型发起的工具调用并请求最终答复，**还不是多轮工具循环**，且工具执行适配层目前只支持单参数工具。把边界说清楚，才方便下一步真正改进。
 
-第七章目前提供 10 个小演示。可以先运行不需要 API 的基础模块，再进入真实模型调用：
+## 5 分钟试跑：先看不需要 API 的部分
+
+先安装 [uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.11 或 3.12。在仓库根目录打开 PowerShell：
 
 ```powershell
 cd ".\第七章\HelloAgents"
 uv sync
 
-# Windows 中文终端建议启用 Python UTF-8 模式
+# Windows 中文终端输出乱码时可开启
 $env:PYTHONUTF8 = "1"
 
-# 无需模型 API：先理解数据结构和工具系统
 uv run python -m demos.demo_message
 uv run python -m demos.demo_calculator
-uv run python -m demos.demo_registry
-
-# 配置 .env 后，再体验多轮对话与 ReAct 工具调用
-Copy-Item ".\..\..\.env.example" ".\.env"
-uv run python -m demos.demo_simple_agent
-uv run python -m demos.demo_react
-uv run python -m demos.demo_reflection
+uv run python -m demos.demo_tool_schema
 ```
 
-`ReflectionAgent` 当前执行一轮反思：如果反馈包含“无需改进”，直接返回初稿；否则再调用一次模型生成改进版。它还不是多轮循环反思，这个边界会随着后续实现继续更新。
+这三个演示依次展示：消息怎样表示、工具怎样执行、工具说明如何转换成 Function Calling Schema。它们不需要模型密钥，也不会发起模型调用。
 
-## 用 uv 开始
-
-本仓库使用 [uv](https://docs.astral.sh/uv/) 管理 Python 版本、虚拟环境和依赖。不同章节依赖差异较大，因此按主题分组安装，避免一次装下所有框架。
+想看完整的 Agent 流程，再配置 OpenAI 兼容服务：
 
 ```powershell
-# 1. 克隆后进入项目
-cd hello-agents-learning-lab
+# 仍在第七章/HelloAgents 目录
+Copy-Item ".\..\..\.env.example" ".\.env"
+# 编辑 .env，填写 LLM_API_KEY、LLM_MODEL_ID、LLM_BASE_URL
 
-# 2. 创建本地配置（真实密钥只放在 .env，绝不要提交）
-Copy-Item .env.example .env
-
-# 3. 按你要学习的章节同步依赖
-uv sync --group chapter1
-
-# 4. 通过 uv 运行示例
-uv run python ".\第一章\动手体验：5分钟实现第一个智能体.py"
+uv run python -m demos.demo_react
+uv run python -m demos.demo_plan_solve_v2
+uv run python -m demos.demo_reflection
+uv run python -m demos.demo_function_call_agent_run
 ```
 
-可用环境分组：
+模型服务必须支持对应示例的接口；最后一个演示尤其需要服务支持原生 `tools` / Function Calling。各演示的定位、是否需要 API 和建议阅读顺序，见[第七章项目说明](./第七章/HelloAgents/README.md)。
 
-| 分组 | 安装命令 | 对应内容 |
+## 其他章节怎样运行
+
+仓库根目录的 uv 项目按主题划分依赖，避免把 PyTorch 和多个 Agent 框架一次性装齐。进入仓库根目录后，选择一个分组运行；下面用第一章举例：
+
+```powershell
+Copy-Item .env.example .env
+uv sync --group chapter1
+uv run --group chapter1 python ".\第一章\动手体验：5分钟实现第一个智能体.py"
+```
+
+| 章节 / 框架 | uv 分组 | 入口 |
 |---|---|---|
-| `chapter1` | `uv sync --group chapter1` | 第一个联网工具智能体 |
-| `chapter3` | `uv sync --group chapter3` | PyTorch、Transformers、Qwen |
-| `chapter4` | `uv sync --group chapter4` | ReAct、Plan-and-Solve、Reflection |
-| `autogen` | `uv sync --group autogen` | AutoGen 0.7.4 案例 |
-| `agentscope` | `uv sync --group agentscope` | AgentScope 1.0.2 案例 |
-| `camel` | `uv sync --group camel` | CAMEL 案例 |
-| `langgraph` | `uv sync --group langgraph` | LangGraph 案例 |
-| 第七章独立环境 | `cd ".\第七章\HelloAgents"; uv sync` | 自制 HelloAgents 框架与演示 |
+| 第一章 | `chapter1` | [旅行助手](./第一章/README.md) |
+| 第二章 | 无额外分组，使用 Python 标准库 | [ELIZA](./第二章/README.md) |
+| 第三章 | `chapter3`（N-gram、BPE 小实验只用标准库） | [语言模型实验](./第三章/README.md) |
+| 第四章 | `chapter4` | [工作流范式](./第四章/README.md) |
+| 第六章 AutoGen | `autogen` | [多智能体实验](./第六章/README.md) |
+| 第六章 AgentScope | `agentscope` | [多智能体实验](./第六章/README.md) |
+| 第六章 CAMEL | `camel` | [多智能体实验](./第六章/README.md) |
+| 第六章 LangGraph | `langgraph` | [多智能体实验](./第六章/README.md) |
+| 第七章 HelloAgents | 独立 uv 项目 | [框架与演示](./第七章/HelloAgents/README.md) |
 
-切换主题时再次执行对应的 `uv sync --group ...` 即可。第七章已经是独立 uv 项目，会在自己的目录中维护环境与锁文件，避免和前面的大型框架依赖互相影响。
+运行其他分组时，把 `chapter1` 换成表中的分组；具体脚本路径和注意事项写在各章 README。第七章请进入自己的项目目录后再执行 `uv sync`。
 
-## 配置说明
+## 笔记也是项目的一部分
 
-复制 `.env.example` 为 `.env` 后，按示例需要填写：
+我把课后题、概念推导和框架比较放在 [中文学习笔记目录](./notes/README.md)，目前对应第一、二、三、四、六章。比如第一章讨论智能体闭环与循环上限，第三章从 Bigram 一直追到 Transformer、幻觉与 RAG，第四章比较三种工作流，第六章关注多智能体的协作与质量控制。笔记是个人理解与练习，欢迎指出错误；第七章目前以代码注释和演示记录为主。
 
-- `LLM_API_KEY`、`LLM_MODEL_ID`、`LLM_BASE_URL`：OpenAI 兼容模型服务；
-- `TAVILY_API_KEY`：Tavily 搜索；
-- `SERPAPI_API_KEY`：SerpAPI 搜索；
-- `QWEN_CACHE_DIR`：可选，本地 Hugging Face 模型缓存目录。
+## 配置、安全与成本
 
-`.env` 已加入 `.gitignore`。仓库中的示例不会保存真实密钥。
+`.env.example` 只放变量名和占位值；真实的 `.env` 在忽略列表中。不同示例按需填写：`LLM_API_KEY`、`LLM_MODEL_ID`、`LLM_BASE_URL`（模型服务），`TAVILY_API_KEY`、`SERPAPI_API_KEY`（搜索），以及可选的 `QWEN_CACHE_DIR`（本地模型缓存）。不要把密钥粘贴到 Issue、Discussion 或截图里。
 
-## 我想在这里记录什么
+有些实验会下载模型，或访问外部模型、搜索、天气服务，可能需要网络、显存、账户额度并产生费用；运行前请先看对应章节说明。示例输出需要人工核对，不用于医疗、法律、金融等高风险决策。
 
-- 不只记录“最后能跑”，也记录变量怎么变化、Agent 为什么做出下一步决策；
-- 不只比较框架名字，也比较协作模式、控制方式、失败路径和适用边界；
-- 保留初学时真实的问题，让后来者可以沿着同一条路径少绕一点弯；
-- 把代码、笔记和实验结果放在一起，让每个结论都能找到来源。
+## 一起把问题聊明白
 
-## 一起讨论
+欢迎到 [Discussions](https://github.com/lizhuofan-curry/hello-agents-learning-lab/discussions) 提问、纠错、分享复现过程。你可以直接贴“输入是什么、预期是什么、实际输出是什么”；也可以聊为什么一次反思还不够、Function Calling 何时该继续调用工具、不同框架会如何处理同一个任务。这个仓库的重点不是展示一个完美答案，而是把“逐渐弄懂”的过程留给下一个学习者。
 
-欢迎到 [Discussions](https://github.com/lizhuofan-curry/hello-agents-learning-lab/discussions) 交流：
+## 致谢与范围
 
-- 你最想看哪个示例被拆成逐行运行流程？
-- 某个 Agent 为什么会循环、跑题或调用错工具？
-- 同一个任务更适合 ReAct、Reflection，还是 LangGraph？
-- 如果从零设计 Agent 框架，下一步应该补搜索工具、记忆系统还是 Reflection？
-- 你有更清晰的实现方式或实验结果吗？
-
-问题、纠错和学习心得都很欢迎。这个仓库的目标不是假装无所不知，而是把“逐渐弄懂”的过程认真留下来。
-
-## 说明与致谢
-
-本仓库是个人学习与实验记录，并非官方实现。学习路线与部分练习参考了 Datawhale 的开源教程 [Hello-Agents](https://github.com/datawhalechina/hello-agents)，感谢原项目贡献者。引用或复用代码、模型与第三方框架时，请同时遵守对应上游项目的许可证与使用条款。
-
-部分示例会访问第三方模型、搜索或天气服务，可能产生费用、限流或网络风险；运行前请检查服务条款和账户额度。所有输出都应经过人工核验，不应直接用于医疗、法律、金融等高风险决策。
+本仓库是个人学习与实验记录，非官方实现。学习路线与部分练习参考 Datawhale 开源教程 [Hello-Agents](https://github.com/datawhalechina/hello-agents)，感谢原项目和各框架贡献者。复用第三方代码、模型及服务时，请遵守各自许可证与条款。
