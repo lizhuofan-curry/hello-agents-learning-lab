@@ -4,10 +4,64 @@ from typing import Any
 
 from hello_agents.core.agent import Agent
 from hello_agents.tools.base import BaseModel, BaseTool
-
+from hello_agents.core.message import Message
 
 class FunctionCallAgent(Agent):
     """ 基于原生 Function Calling 的 Agent """
+    def __init__(
+            self,
+            name:str,
+            llm,
+            # 这个意思是 创建 FunctionCallAgent的时候，可以给它一组工具
+            tools : list[BaseTool]|None = None,
+            system_prompt:str|None = None,
+            config = None
+    ):
+        super().__init__(
+            name = name,
+            llm = llm,
+            system_prompt=system_prompt,
+            config=config
+        )
+        self.tools = tools or []
+
+    def _find_tool(
+            self,
+            tool_name: str
+    ) -> BaseTool | None:
+        '''根据工具名称寻找工具对象'''
+        for tool in self.tools:
+            if tool.name == tool_name:
+                return tool
+        return None
+
+    # 这是一个临时适配层
+    # 负责讲真正的 input_data 从 argument中取出来
+    def _execute_tool(
+            self,
+            tool:BaseTool,
+            arguments:dict[str,Any]
+    ) -> str:
+        '''执行当前工具'''
+
+        parameters = tool.get_parameters()
+
+        if len(parameters) != 1:
+            raise ValueError(
+                '当前版本暂时只支持单参数工具'
+            )
+
+        parameter_name = parameters[0].name
+
+        if parameter_name not in arguments:
+            raise ValueError(
+                f'缺少工具参数：{parameter_name}'
+            )
+
+        value = arguments[parameter_name]
+
+        return tool.execute(str(value))
+
     # 这个函数把以前的 response = llm._client.chat.completions.create封装起来了
     # 这就是所谓的 封装底层 API 细节
     # 假如以后底层参数需要修改，只需改 _invoke_with_tools ，不需要满项目搜索 client.chat.completions.create
@@ -173,5 +227,125 @@ class FunctionCallAgent(Agent):
     # 因为此时的 FunctionCallAgent 是继承了 Agent的
     # 而 Agent 里面有一个 @abstractmethod 抽象方法，所以必须实现 run()
     def run(self,input_text: str) -> str:
-        '''暂时留到下一版实现'''
-        return "FunctionCallAgent V1"
+        """执行一次完整的 Function Calling 流程"""
+
+        # 1.用户消息
+        user_message = Message(
+            role = 'user',
+            content=input_text
+        )
+
+        messages = []
+
+        if self.system_prompt:
+            messages.append(
+                {
+                    'role' : 'system',
+                    'content':self.system_prompt
+                }
+            )
+
+        messages.append(user_message.to_dict())
+
+        # 2.构建工具 Schema
+        tool_schemas = self._build_tool_schemas(self.tools)
+
+        # 3.第一次调用模型
+        response = self._invoke_with_tools(
+            messages = messages,
+            tools=tool_schemas,
+        )
+
+        message = response.choices[0].message
+
+        # 4.如果模型没有调用工具
+        if not message.tool_calls:
+            final_answer = self._extract_message_content(message)
+            self.add_message(user_message)
+            self.add_message(
+                Message(
+                    role = 'assistant',
+                    content=final_answer
+                )
+            )
+            return final_answer
+
+        # 5. 保存模型的工具调用请求
+        assistant_message = {
+            'role': 'assistant',
+            'content': message.content or "",
+            'tool_calls':[]
+        }
+
+        for tool_call in message.tool_calls:
+            assistant_message['tool_calls'].append(
+                {
+                    'id': tool_call.id,
+                    'type': tool_call.type,
+                    'function':{
+                        'name':tool_call.function.name,
+                        'arguments': tool_call.function.arguments
+                    }
+                }
+            )
+        messages.append(assistant_message)
+
+        # 6.执行工具
+        for tool_call in message.tool_calls:
+            tool_name = tool_call.function.name
+            tool = self._find_tool(tool_name)
+
+            if tool is None:
+                raise ValueError(f"找不到工具：{tool_name}")
+
+            # JSON 字符串 -> dict
+            arguments = self._parse_function_call_arguments(
+                tool_call.function.arguments
+            )
+
+            # 参数类型转换
+            arguments = self._convert_parameter_types(
+                tool,
+                arguments
+            )
+
+            # 真正执行工具
+            result = self._execute_tool(
+                tool = tool,
+                arguments = arguments
+            )
+
+            print(f"\n🔧 工具 {tool_name} 执行结果：")
+            print(result)
+
+            # 把工具结果加入上下文
+            messages.append(
+                {
+                    'role':'tool',
+                    'tool_call_id':tool_call.id,
+                    'content':str(result)
+                }
+            )
+
+        # 第二次调用模型
+        final_response = self._invoke_with_tools(
+            messages = messages,
+            tools = tool_schemas
+        )
+
+        final_message = final_response.choices[0].message
+
+        # 8.提取最终文本
+        final_answer = self._extract_message_content(final_message)
+
+        # 9.保存真正的对话历史
+        self.add_message(user_message)
+
+        self.add_message(
+            Message(
+                role = 'assistant',
+                content=final_answer
+            )
+        )
+
+        return final_answer
