@@ -87,6 +87,40 @@ class BaseTool(ABC):
             }
         }
 
+    def run(
+            self,
+            # dict 天然支持多个参数
+            parameters : dict[str,Any]
+    ) -> str:
+        """
+        新版接口：必须接收参数字典执行工具
+        当前阶段作为兼容层
+        内部暂时调用旧的 execute()
+        所以当前 run()像一个转接头
+        """
+        # 这是为了让 BaseTool 知道：字典里的哪个key才是这个工具真正需要的参数
+        tool_parameters = self.get_parameters()
+
+        # 因为现在旧接口只有 execute(input_data:str)
+        # 所以很自然只能接收一个字符串
+        if len(tool_parameters) != 1:
+            raise ValueError(
+                "当前兼容版本的 run()"
+                "暂时只支持单参数工具"
+            )
+        parameter_name = tool_parameters[0].name
+
+        if parameter_name not in parameters:
+            raise ValueError(
+                f"缺少工具参数：{parameter_name}"
+            )
+
+        value = parameters[parameter_name]
+
+        return self.execute(str(value))
+
+
+
     def __str__(self) -> str:
         return f"{self.name}:{self.description}"
 
