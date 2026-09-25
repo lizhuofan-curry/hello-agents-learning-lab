@@ -15,7 +15,8 @@ class FunctionCallAgent(Agent):
             # 这个意思是 创建 FunctionCallAgent的时候，可以给它一组工具
             tools : list[BaseTool]|None = None,
             system_prompt:str|None = None,
-            config = None
+            config = None,
+            max_steps :int = 5,
     ):
         super().__init__(
             name = name,
@@ -24,6 +25,7 @@ class FunctionCallAgent(Agent):
             config=config
         )
         self.tools = tools or []
+        self.max_steps = max_steps
 
     def _find_tool(
             self,
@@ -227,7 +229,7 @@ class FunctionCallAgent(Agent):
     # 因为此时的 FunctionCallAgent 是继承了 Agent的
     # 而 Agent 里面有一个 @abstractmethod 抽象方法，所以必须实现 run()
     def run(self,input_text: str) -> str:
-        """执行一次完整的 Function Calling 流程"""
+        """执行多轮 Function Calling"""
 
         # 1.用户消息
         user_message = Message(
@@ -244,106 +246,110 @@ class FunctionCallAgent(Agent):
                     'content':self.system_prompt
                 }
             )
+        # 2.以前的对话历史
+        for message in self._history:
+            messages.append(message.to_dict())
 
+        # 3.当前用户消息
         messages.append(user_message.to_dict())
 
-        # 2.构建工具 Schema
+        # 4.构建工具 Schema
         tool_schemas = self._build_tool_schemas(self.tools)
 
-        # 3.第一次调用模型
-        response = self._invoke_with_tools(
-            messages = messages,
-            tools=tool_schemas,
-        )
+        # 多轮 Function Calling
+        for step in range(1,self.max_steps + 1):
+            print(f"\n========== Function Call 第 {step} 轮 ==========")
 
-        message = response.choices[0].message
+            # 5.调用模型
+            response = self._invoke_with_tools(
+                messages = messages,
+                tools = tool_schemas
+            )
+            message = response.choices[0].message
 
-        # 4.如果模型没有调用工具
-        if not message.tool_calls:
-            final_answer = self._extract_message_content(message)
-            self.add_message(user_message)
-            self.add_message(
-                Message(
-                    role = 'assistant',
-                    content=final_answer
+            # 情况 A: 模型不再调用工具
+            # 所以循环退出条件实际上是 模型不再产生 tool_calls
+            if not message.tool_calls:
+                final_answer = (
+                    self._extract_message_content(message)
                 )
-            )
-            return final_answer
 
-        # 5. 保存模型的工具调用请求
-        assistant_message = {
-            'role': 'assistant',
-            'content': message.content or "",
-            'tool_calls':[]
-        }
+                self.add_message(user_message)
 
-        for tool_call in message.tool_calls:
-            assistant_message['tool_calls'].append(
-                {
-                    'id': tool_call.id,
-                    'type': tool_call.type,
-                    'function':{
-                        'name':tool_call.function.name,
-                        'arguments': tool_call.function.arguments
+                self.add_message(
+                    Message(
+                        role="assistant",
+                        content=final_answer
+                    )
+                )
+
+                return final_answer
+            # 情况 B: 模型要求调用工具
+            assistant_message = {
+                'role': 'assistant',
+                'content': message.content or '',
+                'tool_calls': []
+            }
+
+            # 保存模型发的所有 Tool Call
+            for tool_call in message.tool_calls:
+                assistant_message['tool_calls'].append(
+                    {
+                        'id':tool_call.id,
+                        'type':tool_call.type,
+                        'function':{
+                            'name':tool_call.function.name,
+                            'arguments':tool_call.function.arguments,
+                        }
                     }
-                }
-            )
-        messages.append(assistant_message)
+                )
+            messages.append(assistant_message)
 
-        # 6.执行工具
-        for tool_call in message.tool_calls:
-            tool_name = tool_call.function.name
-            tool = self._find_tool(tool_name)
+            # 执行本轮所有工具调用
+            # 一个非常重要的细节:一轮可能有多个 Tool Call
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.function.name
+                print(f'模型请求工具：{tool_name}')
 
-            if tool is None:
-                raise ValueError(f"找不到工具：{tool_name}")
+                # 找真正的工具对象
+                tool =self._find_tool(tool_name)
 
-            # JSON 字符串 -> dict
-            arguments = self._parse_function_call_arguments(
-                tool_call.function.arguments
-            )
+                if tool is None:
+                    raise ValueError(f'找不到工具：{tool_name}')
 
-            # 参数类型转换
-            arguments = self._convert_parameter_types(
-                tool,
-                arguments
-            )
+                # JSON 字符串-> dict
+                arguments = self._parse_function_call_arguments(
+                    tool_call.function.arguments
+                )
 
-            # 真正执行工具
-            result = self._execute_tool(
-                tool = tool,
-                arguments = arguments
-            )
+                # 修正参数类型
+                arguments = self._convert_parameter_types(tool,arguments)
 
-            print(f"\n🔧 工具 {tool_name} 执行结果：")
-            print(result)
+                print(f'参数工具：{arguments}')
 
-            # 把工具结果加入上下文
-            messages.append(
-                {
-                    'role':'tool',
-                    'tool_call_id':tool_call.id,
-                    'content':str(result)
-                }
-            )
+                # 真正执行工具
+                result = self._execute_tool(tool,arguments)
 
-        # 第二次调用模型
-        final_response = self._invoke_with_tools(
-            messages = messages,
-            tools = tool_schemas
+                print(f'工具结果 : {result}')
+
+                # 讲结果返回给 LLM
+                messages.append(
+                    {
+                        'role':'tool',
+                        'tool_call_id':tool_call.id,
+                        'content':str(result),
+                    }
+                )
+
+        # 超过最大轮数
+        final_answer = (
+            f'超过最大工具调用轮数',
+            f'{self.max_steps},任务未完成'
         )
-
-        final_message = final_response.choices[0].message
-
-        # 8.提取最终文本
-        final_answer = self._extract_message_content(final_message)
-
-        # 9.保存真正的对话历史
         self.add_message(user_message)
-
         self.add_message(
             Message(
-                role = 'assistant',
+                role='assistant',
                 content=final_answer
             )
         )
