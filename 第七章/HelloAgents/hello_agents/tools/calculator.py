@@ -31,6 +31,21 @@ class CalculatorTool(BaseTool):
         except Exception as e:
             return f"计算失败：{e}"
 
+    # Python 会优先使用子类自己的方法
+    # 也就是 CalculatorTool.run() 覆盖了 BaseTool.run()
+    # 这也叫做 方法重写
+    def run(
+            self,
+            parameters :dict
+    ) -> str:
+        """新版接口 ： 使用参数字典执行计算"""
+        print("进入 CalculatorTool.run()")
+        if 'expression' not in parameters:
+            return "计算失败：缺少参数 expression"
+        expression = parameters['expression']
+
+        return self.execute(str(expression))
+
     def get_parameters(self) -> list[ToolParameter]:
         """返回计算器需要的参数"""
         return [

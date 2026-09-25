@@ -8,3 +8,8 @@ print(result1)
 print('\n============== 新接口 ==================')
 result2 = calculator.run({"expression": "23 * 17 + 5"})
 print(result2)
+
+print("\n========== 缺少参数 ==========")
+
+result3 = calculator.run({})
+print(result3)
