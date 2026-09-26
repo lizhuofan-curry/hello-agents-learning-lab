@@ -57,16 +57,30 @@ class BaseTool(ABC):
         required = []
 
         for parameter in parameters:
-            properties[parameter.name] = {
-                "type" : parameter.type,
-                "description" : parameter.description,
+            # 1. 当前参数的基本描述
+            # 因为我们还要继续往这个参数说明里加东西
+            prop = {
+                'type':parameter.type,
+                'description':parameter.description,
             }
 
+            # 2. 如果参数有默认值
+            if parameter.default is not None:
+                prop['description'] = (
+                    f'{parameter.description}'
+                    f'(默认：{parameter.default})'
+                )
+            # 3. 如果参数是数组
+            if parameter.type == 'array':
+                prop['items'] = {'type': 'string'}
+
+            # 4. 放入 properties
+            properties[parameter.name] = prop
+
+            # 5. 收集必填参数
             if parameter.required:
                 required.append(parameter.name)
-        # Schema 不是调用结果，它是工具说明书
-        # Tool Call 是模型按照说明书填写的一张“调用申请单”
-
+        # 6. 最终生成 Schema
         return {
             # 这是工具类型
             "type" : "function",

@@ -98,15 +98,28 @@ class ToolRegistry:
 
     # 这里是给 LLM 看的，因为 LLM 并不知道有哪些工具
     # 所以后面的 ReActAgent 在 Prompt 里面告诉它，模型才能判断调用哪个工具
+    # 这其实是在解决 Agent 如何发现 Resgistry 里有哪些工具
+    # 这对于 ReAct 架构来说很重要
     def get_tools_description(self) -> str:
-        '''生成所有工具的说明'''
-        if not self._tools:
-            return "暂无可用工具"
-
+        '''获取所有可用工具的描述'''
+        # 先准备一个空列表，后面不断往里面装描述部分
         descriptions = []
 
+        # BaseTool 工具
+        # Too直接用 value 拿到的是对象
         for tool in self._tools.values():
             descriptions.append(
-                f"-{tool.name} : {tool.description}"
+                f"- {tool.name} : {tool.description}"
             )
+
+        # 普通函数工具
+        # 这里用 items ,因为我们既需要name又需要info
+        for name,info in self._functions.items():
+            descriptions.append(
+                f'- {name} : {info["description"]}'
+            )
+
+        if not descriptions:
+            return '暂无可用工具'
+
         return "\n".join(descriptions)
