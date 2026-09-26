@@ -328,7 +328,7 @@ class FunctionCallAgent(Agent):
                 print(f'参数工具：{arguments}')
 
                 # 真正执行工具
-                result = self._execute_tool(tool,arguments)
+                result = tool.run(arguments)
 
                 print(f'工具结果 : {result}')
 

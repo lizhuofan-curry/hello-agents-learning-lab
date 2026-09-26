@@ -1,5 +1,6 @@
 """工具注册表"""
 from hello_agents.tools.base import BaseTool
+from typing import Any
 
 class ToolRegistry:
     """统一管理所有工具"""
@@ -25,14 +26,18 @@ class ToolRegistry:
     def execute_tool(
             self,
             tool_name:str,
-            input_data:str
+            input_data:str | dict[str,Any]  # 表示 input_data 可以是这两种类型之一
     ) -> str:
-        '''根据名字找到工具并执行'''
+        '''执行指定工具，兼容旧版字符串参数和新版字典参数'''
         tool = self.get_tool(tool_name)
 
         if tool is None:
             return f"错误，找不到工具 '{tool_name}'"
 
+        # 新版接口 ：dict 参数
+        if isinstance(input_data,dict):
+            return tool.run(input_data)
+        # 旧版接口：str 参数
         return tool.execute(input_data)
 
     def list_tools(self) -> list[str]:

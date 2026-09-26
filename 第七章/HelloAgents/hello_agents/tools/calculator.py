@@ -39,7 +39,6 @@ class CalculatorTool(BaseTool):
             parameters :dict
     ) -> str:
         """新版接口 ： 使用参数字典执行计算"""
-        print("进入 CalculatorTool.run()")
         if 'expression' not in parameters:
             return "计算失败：缺少参数 expression"
         expression = parameters['expression']
