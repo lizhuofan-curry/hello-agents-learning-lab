@@ -84,3 +84,43 @@ class ToolChain:
 
         return context[final_key]
 
+class ToolChainManager:
+    '''工具链管理器'''
+    def __init__(
+            self,
+            registry:ToolRegistry,
+    ):
+        self.registry = registry
+        # Manager 用来保存所有工具链的字典
+        self.chains : dict[str,ToolChain] = {}
+
+    def register_chain(
+            self,
+            chain:ToolChain
+    ):
+        '''注册工具链'''
+        self.chains[chain.name] = chain
+        print(f"工具链 '{chain.name}' 已注册")
+
+    def execute_chain(
+            self,
+            chain_name : str,
+            input_data : str,
+            context: dict[str,Any]|None = None,
+    ) -> str:
+        '''根据名字执行指定工具链'''
+        if chain_name not in self.chains:
+            return f"工具链 '{chain_name}' 不存在"
+
+        chain = self.chains[chain_name]
+
+        return chain.execute(
+            registry=self.registry,
+            initial_input=input_data,
+            context=context,
+        )
+
+    def list_chains(self) -> list[str]:
+        '''返回所有工具链名称'''
+        return list(self.chains.keys())
+
