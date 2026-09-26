@@ -113,11 +113,46 @@ class MyAdvancedSearchTool:
             self,
             query:str
     ) -> str:
-        '''执行智能搜索'''
+        '''执行智能多源搜索'''
+        # 1. 检查查询是否为空
         if not query.strip():
             return '错误，搜索查询不能为空'
 
-        if 'tavily' in self.search_sources:
-            return self._search_with_tavily(query)
+        # 2. 检查是否存在可用搜索源
+        if not self.search_sources:
+            return (
+                '没有可用的搜索源'
+                '请检查 API Key 和相关依赖'
+            )
+        print(f'开始智能搜索: {query}')
 
-        return '没有可用的搜素源'
+        # 3. 按顺序尝试搜索源
+        # 这是 fallback 最核心的控制流
+        for source in self.search_sources:
+            try:
+                # Tavily
+                if source == 'tavily':
+                    print("正在尝试 Tavily...")
+                    result = self._search_with_tavily(query)
+
+                    if result:
+                        return ("Tavily 搜索结果：\n\n" + result)
+                # SerpApi
+                elif source == 'serpapi':
+                    print("正在尝试 SerpApi...")
+                    result = self._search_with_serpapi(query)
+                    if result:
+                        return ("SerpApi 搜索结果：\n\n" + result)
+
+            except Exception as e:
+                print(f'{source} 搜索失败：{e}')
+                print("尝试下一个搜索源....")
+                # 如果没有 fallback 思维，程序可能直接结束，导致整个搜索失败
+                # 这就是所谓的 服务降级(fallback)
+                continue
+        # 4. 所有搜索源都失败
+        return (
+            '所有搜索源都失败了，'
+            '请检查网络，API Key 或服务状态'
+        )
+
