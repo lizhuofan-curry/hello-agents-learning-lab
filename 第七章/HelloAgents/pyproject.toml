@@ -3,10 +3,12 @@ name = "helloagents"
 version = "0.1.0"
 requires-python = ">=3.11, <3.13"
 dependencies = [
+    "google-search-results>=2.4.2",
     "openai>=3.17.0",
     "pydantic>=2,<3",
     "python-dotenv>=1.2.3",
     "requests>=2.34.2",
+    "tavily>=1.1.0",
 ]
 
 [dependency-groups]
