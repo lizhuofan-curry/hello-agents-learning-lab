@@ -53,4 +53,71 @@ class MyAdvancedSearchTool:
         else:
             print('当前没有可用的搜索源')
 
+    def _search_with_tavily(
+            self,
+            query:str
+    ) -> str:
+        '''使用 Tavily 搜索'''
+        response = self.tavily_client.search(
+            query=query,
+            max_results=3
+        )
 
+        result = ""
+
+        if response.get('answer'):
+            result +=  f"AI直接答案：{response['answer']}\n\n"
+
+        result += '相关结果：\n'
+
+        for i,item in enumerate(response.get('results',[])[:3],1):
+            result += (f"[{i}] {item.get('title','')}\n")
+            result +=f"   {item.get('content','')[:150]}...\n"
+
+        return result
+
+    def _search_with_serpapi(
+            self,
+            query:str
+    ) -> str:
+        '''使用 SerpApi 搜索'''
+        import serpapi
+
+        search = serpapi.GoogleSearch(
+            {
+                'q': query,
+                'api_key': os.getenv('SERPAPI_API_KEY'),
+                'num': 3,
+            }
+        )
+        results = search.get_dict()
+
+        result = "Google 搜索结果: \n"
+
+        if "organic_results" in results:
+            for i,item in enumerate(results['organic_results'][:3],1):
+                result += (f"[{i}]"f"{item.get('title','')}\n")
+
+                result += (f"   "
+                           f"{item.get('snippet','')}\n"
+                )
+
+                result+=(
+                    f"   来源："
+                    f"{item.get('link','')}\n\n"
+                )
+            return result
+
+    # 统一接口 / 屏蔽后端差异
+    def search(
+            self,
+            query:str
+    ) -> str:
+        '''执行智能搜索'''
+        if not query.strip():
+            return '错误，搜索查询不能为空'
+
+        if 'tavily' in self.search_sources:
+            return self._search_with_tavily(query)
+
+        return '没有可用的搜素源'
