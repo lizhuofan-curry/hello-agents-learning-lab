@@ -2,7 +2,9 @@
 
 # Hello Agents · 我的智能体学习实验室
 
-**从“Agent 到底是什么”出发，用代码和笔记，一步步把它拆开、跑通、再亲手搭起来。**
+**不只会调用 Agent，也想知道它为什么这样行动。**
+
+一个人、一台 Windows 电脑、一串从 ELIZA 走到自制框架的真实学习记录。
 
 规则对话 → 语言模型 → Agent 工作流 → 多智能体协作 → 自制 HelloAgents
 
@@ -17,11 +19,17 @@
 
 ## 为什么有这个仓库
 
-我想把学习 Agent 的过程留得更具体一些：不只记录“调用了哪个框架”，还追问模型如何决定下一步、工具调用是怎样接上的、计划失败时会发生什么。这里既有从零写的小实验，也有我对概念、课后题和失败边界的中文笔记。
+我想把学习 Agent 的过程留得更具体一些：旅行助手为什么决定先查天气？模型给出的工具参数怎样变成真实的 Python 调用？当搜索服务坏掉，能不能换一条路继续？这里不只放最后能运行的代码，也保留我逐步拆解概念、改造接口、发现问题的中文笔记。
 
 如果你也刚开始学 AI Agent，可以从第一章顺着走；如果你已经在写 Agent，可以直接跳到[第七章的自制框架](./第七章/README.md)，看一个 Agent 怎样从消息、模型和工具逐层长出来。
 
 > 这是持续更新的个人学习实验室，不是官方教程，也不把尚未实现的能力标成“已完成”。
+
+### 选一条适合你的入口
+
+- **刚入门**：从[第一章旅行助手](./第一章/README.md)看完整的“思考—行动—观察”闭环，再到[第二章 ELIZA](./第二章/README.md)比较规则与模型。
+- **想读实现**：直达[第七章 HelloAgents](./第七章/HelloAgents/README.md)，沿着 `Message → Tool → Agent → Function Calling` 读代码。
+- **喜欢先想清楚**：打开[中文学习笔记](./notes/README.md)，对照课后题和章节代码看推导、疑问与反思。
 
 ## 从哪里开始
 
@@ -47,24 +55,26 @@
 
 ## 当前重点：自制 HelloAgents
 
-第七章是这段学习路线的“回收站”与“试验台”：前面学过的消息、工具、规划和反思，在这里变成能复用的 Python 组件。它有独立的 `pyproject.toml`、`uv.lock` 和 **24 个演示脚本**，无需把前面几章的框架依赖一起装进来。
+第七章是这段学习路线的“回收站”与“试验台”：前面学过的消息、工具、规划和反思，在这里变成能复用的 Python 组件。它有独立的 `pyproject.toml`、`uv.lock` 和 **33 个阶段性演示脚本**，无需把前面几章的框架依赖一起装进来。并非每个历史演示都适用于当前接口；[项目说明](./第七章/HelloAgents/README.md)会标出推荐入口与已知边界。
 
 <p align="center">
   <a href="./assets/helloagents-architecture.svg">
     <img src="./assets/helloagents-architecture.png" alt="HelloAgents 的 Core、Agent、Tool 基础骨架" width="100%" />
   </a>
 </p>
-<p align="center"><sub>这张图展示最初搭建的基础骨架；下表补充之后新增的 Plan-and-Solve 与 Function Calling。</sub></p>
+<p align="center"><sub>这张图展示最初搭建的基础骨架；下表记录此后新增的能力。点击图片可看 SVG 原图。</sub></p>
 
 | 层次 | 已实现内容 | 从哪里读起 |
 |---|---|---|
 | Core | `Message`、`Config`、`HelloAgentsLLM`、`Agent` 抽象基类 | [core](./第七章/HelloAgents/hello_agents/core/) |
-| Tools | `BaseTool`、`ToolParameter`、`ToolRegistry`、受限表达式计算器、OpenAI 工具 Schema 转换 | [tools](./第七章/HelloAgents/hello_agents/tools/) |
+| Tools | 工具参数与 Schema、类工具和普通函数注册、计算器、多源搜索与失败回退 | [tools](./第七章/HelloAgents/hello_agents/tools/) |
 | 基础 Agent | `SimpleAgent` 的对话历史；`ReActAgent` 的工具选择、Observation 与最大步数 | [agents](./第七章/HelloAgents/hello_agents/agents/) |
 | 规划与反思 | `PlanAndSolveAgent` 的计划生成与逐步执行；`ReflectionAgent` 的初稿、一次反馈与按需改写 | [演示索引](./第七章/HelloAgents/README.md#演示怎么选) |
-| 原生工具调用 | `FunctionCallAgent` 的工具 Schema、参数解析/转换、工具执行与结果回填 | [演示索引](./第七章/HelloAgents/README.md#演示怎么选) |
+| 原生工具调用 | `FunctionCallAgent` 已写入受 `max_steps` 限制的多轮工具调用控制流 | [演示索引](./第七章/HelloAgents/README.md#演示怎么选) |
 
-这里有意保留实现边界：`ReflectionAgent` 只做**一轮**反思；`PlanAndSolveAgent` 当前按初始计划依次执行，**不动态重规划**；`FunctionCallAgent` 当前处理一次模型发起的工具调用并请求最终答复，**还不是多轮工具循环**，且工具执行适配层目前只支持单参数工具。把边界说清楚，才方便下一步真正改进。
+一条有趣的进化线是：最初的 `CalculatorTool` 只有 `execute("2 + 3")`；后来工具会描述参数、生成 Schema，并通过 `run({"expression": "2 + 3"})` 接收字典；再后来，注册表能接入普通函数，搜索工具会依次尝试 Tavily 和 SerpApi。看这些中间版本，比直接看最终接口更容易理解“为什么要抽象”。
+
+这里也保留实现边界：`ReflectionAgent` 只做**一轮**反思；`PlanAndSolveAgent` 按初始计划依次执行，尚不动态重规划；Function Calling 的**多轮循环已写入源码**，但网络模型的完整端到端流程与步数耗尽等异常分支仍待验证。搜索回退是学习实现，不等于生产级可靠性保障。
 
 ## 5 分钟试跑：先看不需要 API 的部分
 
@@ -80,9 +90,11 @@ $env:PYTHONUTF8 = "1"
 uv run python -m demos.demo_message
 uv run python -m demos.demo_calculator
 uv run python -m demos.demo_tool_schema
+uv run python -m demos.demo_registry_function
+uv run python -m demos.demo_custom_calculator
 ```
 
-这三个演示依次展示：消息怎样表示、工具怎样执行、工具说明如何转换成 Function Calling Schema。它们不需要模型密钥，也不会发起模型调用。
+这些演示依次展示：消息怎样表示、工具怎样执行、工具说明如何转换成 Function Calling Schema，以及一个普通 Python 函数如何接入注册表。它们不需要模型密钥，也不会发起模型调用。
 
 想看完整的 Agent 流程，再配置 OpenAI 兼容服务：
 
@@ -98,6 +110,18 @@ uv run python -m demos.demo_function_call_agent_run
 ```
 
 模型服务必须支持对应示例的接口；最后一个演示尤其需要服务支持原生 `tools` / Function Calling。各演示的定位、是否需要 API 和建议阅读顺序，见[第七章项目说明](./第七章/HelloAgents/README.md)。
+
+## 这份仓库怎么组织
+
+```text
+第一章～第四章/        从单 Agent 闭环、规则对话到语言模型与经典工作流
+第六章/                AutoGen、AgentScope、CAMEL、LangGraph 对照实验
+第七章/HelloAgents/     独立 uv 项目：core、agents、tools、demos
+notes/                 与章节对应的中文课后题和个人推导
+assets/                可以放大查看的学习路线与架构插图
+```
+
+如果是第一次来，建议先读一个章节 README，再打开它推荐的第一个脚本；每章都写了“看什么、怎么跑、可以试着改什么”，不用在文件列表里猜顺序。
 
 ## 其他章节怎样运行
 
@@ -125,7 +149,9 @@ uv run --group chapter1 python ".\第一章\动手体验：5分钟实现第一�
 
 ## 笔记也是项目的一部分
 
-我把课后题、概念推导和框架比较放在 [中文学习笔记目录](./notes/README.md)，目前对应第一、二、三、四、六章。比如第一章讨论智能体闭环与循环上限，第三章从 Bigram 一直追到 Transformer、幻觉与 RAG，第四章比较三种工作流，第六章关注多智能体的协作与质量控制。笔记是个人理解与练习，欢迎指出错误；第七章目前以代码注释和演示记录为主。
+我把课后题、概念推导和框架比较放在 [中文学习笔记目录](./notes/README.md)，目前对应第一、二、三、四、六章。比如第一章讨论智能体闭环与循环上限，第三章从 Bigram 追到 Transformer、幻觉与 RAG，第四章比较三种工作流，第六章关注多智能体的协作与质量控制。笔记是个人理解与练习，欢迎指出错误；第七章目前以代码注释和演示记录为主。
+
+我的学习方式是“先猜它应该怎么运行 → 看一遍中间状态 → 亲手改一个条件 → 再用笔记解释为什么”。如果你也在自学，不妨从每章末尾的小练习开始，而不是急着把所有框架安装一遍。
 
 ## 配置、安全与成本
 
