@@ -1,5 +1,7 @@
 import os
 
+from hello_agents.tools.registry import ToolRegistry
+
 class MyAdvancedSearchTool:
     '''自定义多源搜索工具'''
     def __init__(self):
@@ -156,3 +158,20 @@ class MyAdvancedSearchTool:
             '请检查网络，API Key 或服务状态'
         )
 
+def create_advanced_search_registry():
+    '''创建包含高级搜索工具的注册表'''
+    registry = ToolRegistry()
+
+    search_tool = MyAdvancedSearchTool()
+
+    registry.register_function(
+        name = 'advanced_search',
+        description = (
+            '高级搜索工具，整合 Tavily 和 SerpApi'
+            '多个搜索源，提供更全面的搜索结果'
+        ),
+        # 注意 search 没有括号，表示把 search 这个方法本身交给 Registry 保存
+        func=search_tool.search
+    )
+
+    return registry
